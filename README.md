@@ -11,10 +11,16 @@ Nara is a Chrome extension that helps users manage their tasks and reminders eff
 ## Enhancement Options
 Choose one of the following enhancements to implement:
 
-1. **History Feature**: Maintain a log of all tasks and reminders created by the user.
-2. **Alternative API Integration**: Integrate with another task management API provider.
-3. **Progress Indicator**: Add a progress bar to indicate the status of API calls.
-4. **Custom Feature**: Propose a unique feature (requires instructor/TA approval).
+1. **Task Info Button**: Add a small info button (ⓘ) next to each task that opens a panel where users can:
+   - Set a due date
+   - Add notes
+2. **Speech Bubble Encouragement**: Implement a feature where, whenever the user checks off a task, a speech or thought bubble appears near the deer with a short, encouraging message (e.g., “Great job!”, “You’re making progress!”, “Keep going!”).
+2. **Daily Gratitude Log**: Implement a small text area where users can note one thing they’re grateful for each day. Over time, they can revisit a dedicated “gratitude log” to see their positive moments.
+3. **Mood Selection Prompt**: Implement a simple mood selection feature(e.g., happy, stressed, neutral) with a small icon or emoji. This allows users to log their emotional state quickly each day.
+4. **Rotating Weekly Challenge**: Implement a weekly challenge system—such as “Drink 8 glasses of water each day” or “Take a 10-minute walk daily.” Users can check off these mini-challenges alongside their normal tasks for extra motivation.
+5. **Inspirational Quote Overlay**: Implement a short inspirational quote or positive affirmation that appears on each new tab, displayed in a subtle text overlay.
+6. **Implement a History Feature**: Maintain a log of all tasks and reminders created by the user, allowing them to revisit past items and track progress over time.
+7. **Custom Feature**: Propose a unique feature (requires instructor/TA approval).
 
 ## Getting Started
 

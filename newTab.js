@@ -354,7 +354,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // Function to get 5 random tasks from a category
   function getRandomTasks(category) {
     const tasks = taskPool[category];
-    return shuffleArray([...tasks]).slice(0, 5);
+    return shuffleArray([...tasks]).slice(0, 5).map(text => ({
+      text,
+      completed: false,
+      dueDate: '',
+      additionalInfo: ''
+    }));
   }
 
   const hardcodedTasks = {
@@ -426,6 +431,8 @@ document.addEventListener("DOMContentLoaded", () => {
           .map(() => ({
             text: "",
             completed: false,
+            dueDate: "",
+            additionalInfo: ""
           }));
 
         chrome.storage.local.set({
@@ -444,10 +451,7 @@ document.addEventListener("DOMContentLoaded", () => {
           renderTasks(tasks, 0, category);
         });
       } else {
-        const tasks = hardcodedTasks[category].map((task) => ({
-          text: task,
-          completed: false,
-        }));
+        const tasks = hardcodedTasks[category];
         chrome.storage.local.set({
           state: {
             tasks,
@@ -619,61 +623,171 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function renderTasks(tasks, backgroundIndex, category) {
-    const tasksHeader =
-      document.getElementById("tasks-header") || document.createElement("div");
-    tasksHeader.id = "tasks-header";
-    tasksHeader.innerHTML = `
-      <h1 class="task-title">today's list</h1>
-      <p class="task-subtitle">some tasks to help you feel good</p>
-    `;
+  // Gratitude Log functionality
+  const gratitudeContainer = document.getElementById("gratitude-container");
+  const gratitudeInput = document.getElementById("gratitude-input");
+  const saveGratitudeBtn = document.getElementById("save-gratitude");
+  const viewGratitudeLogBtn = document.getElementById("view-gratitude-log");
+  const gratitudeModal = document.getElementById("gratitude-modal");
+  const gratitudeEntries = document.getElementById("gratitude-entries");
+  const closeGratitudeLogBtn = document.getElementById("close-gratitude-log");
 
-    if (!document.getElementById("tasks-header")) {
-      tasksContainer.innerHTML = "";
-      tasksContainer.appendChild(tasksHeader);
+  // Show gratitude container when tasks are shown
+  const originalRenderTasks = renderTasks;
+  renderTasks = function(tasks, backgroundIndex, category) {
+    originalRenderTasks(tasks, backgroundIndex, category);
+    gratitudeContainer.classList.remove("hidden");
+  };
 
-      const newTaskList = document.createElement("ul");
-      newTaskList.id = "task-list";
-      tasksContainer.appendChild(newTaskList);
-    }
+  // Save gratitude entry
+  saveGratitudeBtn.addEventListener("click", () => {
+    const gratitudeText = gratitudeInput.value.trim();
+    if (!gratitudeText) return;
 
-    const taskListElement = document.getElementById("task-list");
-    taskListElement.innerHTML = "";
+    const entry = {
+      text: gratitudeText,
+      date: new Date().toISOString()
+    };
 
-    const sortedTasks = sortTasksByCompletion(tasks);
+    chrome.storage.local.get("gratitudeLog", (data) => {
+      const gratitudeLog = data.gratitudeLog || [];
+      gratitudeLog.unshift(entry);
+      chrome.storage.local.set({ gratitudeLog }, () => {
+        gratitudeInput.value = "";
+        // Show a brief success message
+        saveGratitudeBtn.textContent = "Saved!";
+        setTimeout(() => {
+          saveGratitudeBtn.textContent = "Save";
+        }, 1500);
+      });
+    });
+  });
 
-    sortedTasks.forEach((task, index) => {
-      const taskItem = document.createElement("li");
-      taskItem.classList.add("draggable");
-      taskItem.innerHTML = `
-        <input type="checkbox" ${task.completed ? "checked" : ""} />
-        <div class="task-text" contenteditable="true" placeholder="New task">${
-          task.text
-        }</div>
-        ${
-          task.text && !task.completed
-            ? `<button class="delete-task"></button>`
-            : ""
-        }
-        <div class="drag-handle">
-         <div class="line"></div>
-          <div class="line"></div>
-          <div class="line"></div>
+  // View gratitude log
+  viewGratitudeLogBtn.addEventListener("click", () => {
+    chrome.storage.local.get("gratitudeLog", (data) => {
+      const gratitudeLog = data.gratitudeLog || [];
+      gratitudeEntries.innerHTML = gratitudeLog.map(entry => `
+        <div class="gratitude-entry">
+          <div class="gratitude-entry-date">${new Date(entry.date).toLocaleDateString()}</div>
+          <div class="gratitude-entry-text">${entry.text}</div>
         </div>
-      `;
+      `).join("");
+      gratitudeModal.classList.remove("hidden");
+    });
+  });
 
-      taskItem.draggable = true;
-      taskItem.dataset.index = tasks.indexOf(task);
+  // Close gratitude log modal
+  closeGratitudeLogBtn.addEventListener("click", () => {
+    gratitudeModal.classList.add("hidden");
+  });
 
-      const checkbox = taskItem.querySelector("input[type='checkbox']");
+  // Hide gratitude container when resetting
+  const originalResetYesHandler = resetYesButton.onclick;
+  resetYesButton.onclick = () => {
+    if (originalResetYesHandler) originalResetYesHandler();
+    gratitudeContainer.classList.add("hidden");
+  };
+
+  function renderTasks(tasks, backgroundIndex, category) {
+    tasksContainer.classList.remove("hidden");
+    gratitudeContainer.classList.remove("hidden");
+    taskList.innerHTML = "";
+
+    tasks.forEach((task, index) => {
+      const taskItem = document.createElement("li");
+      taskItem.className = "draggable";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = task.completed;
+
+      const taskText = document.createElement("div");
+      taskText.className = "task-text";
+      taskText.contentEditable = true;
+      taskText.textContent = task.text;
+      if (category === "others") {
+        taskText.setAttribute("placeholder", "Enter your task here");
+      }
+
+      const infoButton = document.createElement("button");
+      infoButton.className = "task-info-button";
+      infoButton.innerHTML = "ⓘ";
+      infoButton.title = "Add date/notes";
+
+      const infoContainer = document.createElement("div");
+      infoContainer.className = "task-info-container";
+      
+      const dateLabel = document.createElement("label");
+      dateLabel.className = "input-label";
+      dateLabel.textContent = "Due Date";
+      
+      const dateInput = document.createElement("input");
+      dateInput.type = "date";
+      dateInput.className = "task-date-input";
+      dateInput.value = task.dueDate || '';
+      
+      const notesLabel = document.createElement("label");
+      notesLabel.className = "input-label";
+      notesLabel.textContent = "Notes";
+      
+      const additionalInfoInput = document.createElement("input");
+      additionalInfoInput.type = "text";
+      additionalInfoInput.className = "task-info-input";
+      additionalInfoInput.placeholder = "Add notes...";
+      additionalInfoInput.value = task.additionalInfo || '';
+
+      infoContainer.appendChild(dateLabel);
+      infoContainer.appendChild(dateInput);
+      infoContainer.appendChild(notesLabel);
+      infoContainer.appendChild(additionalInfoInput);
+
+      // Save changes when inputs are modified
+      dateInput.addEventListener("change", () => {
+        task.dueDate = dateInput.value;
+        saveTaskState(tasks, category, backgroundIndex);
+      });
+
+      additionalInfoInput.addEventListener("input", () => {
+        task.additionalInfo = additionalInfoInput.value;
+        saveTaskState(tasks, category, backgroundIndex);
+      });
+
+      // Toggle info container with smooth animation
+      infoButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const wasHidden = !infoContainer.classList.contains("show");
+        
+        // Hide all other open info containers first
+        document.querySelectorAll(".task-info-container.show").forEach(container => {
+          if (container !== infoContainer) {
+            container.classList.remove("show");
+          }
+        });
+
+        if (wasHidden) {
+          // Position the container properly before showing
+          const taskRect = taskItem.getBoundingClientRect();
+          infoContainer.style.top = `${taskRect.height / 2}px`;
+          infoContainer.classList.add("show");
+          
+          // Focus the date input when opening
+          setTimeout(() => dateInput.focus(), 300);
+        } else {
+          infoContainer.classList.remove("show");
+        }
+      });
+
+      // Click outside to close with smooth animation
+      document.addEventListener("click", (e) => {
+        if (!infoContainer.contains(e.target) && !infoButton.contains(e.target)) {
+          infoContainer.classList.remove("show");
+        }
+      });
+
       checkbox.addEventListener("change", () => {
         const originalIndex = tasks.indexOf(task);
         tasks[originalIndex].completed = checkbox.checked;
-
-        if (tasks[originalIndex].completed) {
-          const deleteButton = taskItem.querySelector(".delete-task");
-          if (deleteButton) deleteButton.remove();
-        }
 
         let newPosition = 0;
         if (checkbox.checked) {
@@ -684,269 +798,119 @@ document.addEventListener("DOMContentLoaded", () => {
           newPosition = tasks.filter((t) => t.completed).length;
         }
 
-        const [movedTask] = tasks.splice(originalIndex, 1);
-        tasks.splice(newPosition, 0, movedTask);
-
-        const { backgroundIndex: newBackgroundIndex, isFinalImage } =
-          updateBackgroundState(tasks, category);
-
-        if (isFinalImage) {
-          changeBackgroundWithSlide(
-            backgroundSets[category][backgroundSets[category].length - 1]
-          ).then(() => {
-            tasksContainer.classList.add("hidden");
-            categoriesContainer.classList.add("hidden");
-            hideHoverCircles(); // Hide hover circles when the final image is shown
-            document.getElementById("welcome-message").classList.add("hidden");
-            // Create and show thank you message
-            const thankYouMessage = document.createElement("div");
-            thankYouMessage.className = "thank-you-message";
-            thankYouMessage.textContent =
-              "Thank you for taking good care of me";
-            document.body.appendChild(thankYouMessage);
-          });
-        } else {
-          changeBackgroundWithSlide(
-            backgroundSets[category][newBackgroundIndex]
-          );
-        }
-
-        chrome.storage.local.set({
-          state: {
-            tasks,
-            backgroundIndex: newBackgroundIndex,
-            categoriesHidden: true,
-            isFinalImage,
-            selectedCategory: category,
-          },
-        });
-
-        if (sortableInstance) {
-          const taskItems = Array.from(taskListElement.children);
-          const oldItemEl = taskItems[originalIndex];
-
-          taskListElement.removeChild(oldItemEl);
-          taskListElement.insertBefore(
-            oldItemEl,
-            taskListElement.children[newPosition]
-          );
-
-          sortableInstance.option("animation", 600);
-          sortableInstance.option("onEnd", null);
-          const evt = new CustomEvent("sortable:start");
-          taskListElement.dispatchEvent(evt);
-
-          oldItemEl.style.transition = "all 600ms ease";
-          oldItemEl.style.animation = "moveTask 600ms ease";
-
-          setTimeout(() => {
-            oldItemEl.style.transition = "";
-            oldItemEl.style.animation = "";
-          }, 600);
-        }
-      });
-
-      const taskTextInput = taskItem.querySelector(".task-text");
-      taskTextInput.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-          event.preventDefault(); // Prevent the default behavior (new line)
-          taskTextInput.blur(); // Exit edit mode
-        }
-      });
-
-      taskTextInput.addEventListener("input", () => {
-        const originalIndex = tasks.indexOf(task);
-        tasks[originalIndex].text = taskTextInput.textContent;
-
-        const existingDeleteButton = taskItem.querySelector(".delete-task");
-
-        if (
-          tasks[originalIndex].text.trim() !== "" &&
-          !tasks[originalIndex].completed &&
-          !existingDeleteButton
-        ) {
-          const deleteButton = document.createElement("button");
-          deleteButton.className = "delete-task";
-
-          deleteButton.addEventListener("click", () => {
-            tasks.splice(originalIndex, 1);
-
-            if (tasks.length < 5) {
-              tasks.push({ text: "", completed: false });
-            }
-
-            const { backgroundIndex: newBackgroundIndex, isFinalImage } =
-              updateBackgroundState(tasks, category);
+        chrome.storage.local.get("tasks", (data) => {
+          const allTasks = data.tasks || {};
+          allTasks[category] = allTasks[category] || [];
+          const taskIndex = allTasks[category].findIndex(t => t.text === task.text);
+          
+          if (taskIndex !== -1) {
+            allTasks[category][taskIndex].completed = task.completed;
+            chrome.storage.local.set({ tasks: allTasks }, () => {
+              const { backgroundIndex, isFinalImage } = updateBackgroundState(tasks, category);
+              saveTaskState(tasks, category, backgroundIndex, isFinalImage);
 
             if (isFinalImage) {
-              changeBackgroundWithSlide(
-                backgroundSets[category][backgroundSets[category].length - 1]
-              ).then(() => {
                 tasksContainer.classList.add("hidden");
-                categoriesContainer.classList.add("hidden");
-                document
-                  .getElementById("welcome-message")
-                  .classList.add("hidden");
-                // Create and show thank you message
+                gratitudeContainer.classList.add("hidden");
                 const thankYouMessage = document.createElement("div");
                 thankYouMessage.className = "thank-you-message";
-                thankYouMessage.textContent =
-                  "Thank you for taking good care of me";
+                thankYouMessage.textContent = "Thank you for taking good care of me";
                 document.body.appendChild(thankYouMessage);
-              });
-            } else {
-              changeBackgroundWithSlide(
-                backgroundSets[category][newBackgroundIndex]
-              );
-            }
-
-            chrome.storage.local.set({
-              state: {
-                tasks,
-                backgroundIndex: newBackgroundIndex,
-                categoriesHidden: true,
-                isFinalImage,
-                selectedCategory: category,
-              },
-            });
+              }
 
             renderTasks(tasks, backgroundIndex, category);
-          });
-          taskItem.appendChild(deleteButton);
-        }
-
-        chrome.storage.local.set({
-          state: {
-            tasks,
-            backgroundIndex,
-            categoriesHidden: true,
-            isFinalImage: false,
-            selectedCategory: category,
-          },
+              changeBackgroundWithSlide(backgroundSets[category][backgroundIndex]);
+            });
+          }
         });
       });
 
-      const deleteButton = taskItem.querySelector(".delete-task");
-      if (deleteButton) {
+      taskText.addEventListener("input", () => {
+        const originalIndex = tasks.indexOf(task);
+        tasks[originalIndex].text = taskText.textContent;
+
+        chrome.storage.local.get("tasks", (data) => {
+          const allTasks = data.tasks || {};
+          allTasks[category] = tasks;
+          chrome.storage.local.set({ tasks: allTasks }, () => {
+            const { backgroundIndex, isFinalImage } = updateBackgroundState(tasks, category);
+            saveTaskState(tasks, category, backgroundIndex, isFinalImage);
+          });
+        });
+      });
+
+      taskItem.appendChild(checkbox);
+      taskItem.appendChild(taskText);
+      if (!task.completed) {
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "delete-task";
         deleteButton.addEventListener("click", () => {
-          const originalIndex = tasks.indexOf(task);
-          tasks.splice(originalIndex, 1);
+          tasks.splice(tasks.indexOf(task), 1);
+          renderTasks(tasks, backgroundIndex, category);
 
-          if (tasks.length < 5) {
-            tasks.push({ text: "", completed: false });
-          }
+          chrome.storage.local.get("tasks", (data) => {
+            const allTasks = data.tasks || {};
+            allTasks[category] = tasks;
+            chrome.storage.local.set({ tasks: allTasks });
+          });
 
-          const { backgroundIndex: newBackgroundIndex, isFinalImage } =
-            updateBackgroundState(tasks, category);
-
-          if (isFinalImage) {
-            changeBackgroundWithSlide(
-              backgroundSets[category][backgroundSets[category].length - 1]
-            ).then(() => {
-              tasksContainer.classList.add("hidden");
-              categoriesContainer.classList.add("hidden");
-              document
-                .getElementById("welcome-message")
-                .classList.add("hidden");
-              // Create and show thank you message
-              const thankYouMessage = document.createElement("div");
-              thankYouMessage.className = "thank-you-message";
-              thankYouMessage.textContent =
-                "Thank you for taking good care of me";
-              document.body.appendChild(thankYouMessage);
-            });
-          } else {
-            changeBackgroundWithSlide(
-              backgroundSets[category][newBackgroundIndex]
-            );
-          }
-
+          const { backgroundIndex: newIndex, isFinalImage } = updateBackgroundState(tasks, category);
           chrome.storage.local.set({
             state: {
               tasks,
-              backgroundIndex: newBackgroundIndex,
+              backgroundIndex: newIndex,
               categoriesHidden: true,
               isFinalImage,
               selectedCategory: category,
             },
           });
-
-          renderTasks(tasks, newBackgroundIndex, category);
         });
+        taskItem.appendChild(deleteButton);
+      }
+      taskItem.appendChild(infoButton);
+
+      // Create drag handle
+      const dragHandle = document.createElement("div");
+      dragHandle.className = "drag-handle";
+      for (let i = 0; i < 3; i++) {
+        const line = document.createElement("div");
+        line.className = "line";
+        dragHandle.appendChild(line);
       }
 
-      taskListElement.appendChild(taskItem);
-
-      if (!document.querySelector("#task-animations")) {
-        const style = document.createElement("style");
-        style.id = "task-animations";
-        style.textContent = `
-          @keyframes moveTask {
-            0% {
-              transform: translateY(0);
-            }
-            50% {
-              transform: translateY(-10px);
-            }
-            100% {
-              transform: translateY(0);
-            }
-          }
-        `;
-        document.head.appendChild(style);
-      }
+      taskItem.appendChild(dragHandle);
+      taskItem.appendChild(infoContainer);
+      taskList.appendChild(taskItem);
     });
 
-    // Initialize or update SortableJS
     if (sortableInstance) {
       sortableInstance.destroy();
     }
 
-    sortableInstance = new Sortable(taskListElement, {
-      animation: 600,
-      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    sortableInstance = new Sortable(taskList, {
+      animation: 150,
+      handle: ".drag-handle",
       ghostClass: "sortable-ghost",
       chosenClass: "sortable-chosen",
+    });
+  }
 
-      onUpdate: (evt) => {
-        const [movedTask] = tasks.splice(evt.oldIndex, 1);
-        tasks.splice(evt.newIndex, 0, movedTask);
-
-        const { backgroundIndex: newBackgroundIndex, isFinalImage } =
-          updateBackgroundState(tasks, category);
-
-        if (isFinalImage) {
-          changeBackgroundWithSlide(
-            backgroundSets[category][backgroundSets[category].length - 1]
-          ).then(() => {
-            tasksContainer.classList.add("hidden");
-            categoriesContainer.classList.add("hidden");
-            document.getElementById("welcome-message").classList.add("hidden");
-            // Create and show thank you message
-            const thankYouMessage = document.createElement("div");
-            thankYouMessage.className = "thank-you-message";
-            thankYouMessage.textContent =
-              "Thank you for taking good care of me";
-            document.body.appendChild(thankYouMessage);
-          });
-        } else {
-          changeBackgroundWithSlide(
-            backgroundSets[category][newBackgroundIndex]
-          );
-        }
-
+  function saveTaskState(tasks, category, backgroundIndex, isFinalImage = false) {
         chrome.storage.local.set({
           state: {
             tasks,
-            backgroundIndex: newBackgroundIndex,
+        backgroundIndex,
             categoriesHidden: true,
             isFinalImage,
             selectedCategory: category,
           },
         });
-      },
-    });
+  }
 
-    tasksContainer.classList.remove("hidden");
+  function showSaveIndicator(indicator) {
+    indicator.classList.add("visible");
+    setTimeout(() => {
+      indicator.classList.remove("visible");
+    }, 1500);
   }
 });

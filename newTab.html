@@ -46,12 +46,30 @@
       <ul id="task-list"></ul>
     </div>
 
+    <!-- Gratitude Log -->
+    <div id="gratitude-container" class="hidden">
+      <div class="gratitude-input-container">
+        <textarea id="gratitude-input" placeholder="What are you grateful for today?"></textarea>
+        <button id="save-gratitude">Save</button>
+      </div>
+      <button id="view-gratitude-log">View Gratitude Log</button>
+    </div>
+
+    <!-- Gratitude Modal -->
+    <div id="gratitude-modal" class="hidden">
+      <div class="modal-content">
+        <h2>Gratitude Log</h2>
+        <div id="gratitude-entries"></div>
+        <button id="close-gratitude-log">Close</button>
+      </div>
+    </div>
+
     <!-- Reset Button -->
     <button id="reset-button">
       <span class="reset-icon">+</span>
     </button>
 
-    <!-- Confirmation Modal -->
+    <!-- Reset Modal -->
     <div id="reset-modal" class="hidden">
       <div class="modal-content">
         <p>
@@ -64,6 +82,67 @@
         </div>
       </div>
     </div>
+
+    <style>
+    .task-info-button {
+      background: none;
+      border: none;
+      color: #9CA3AF;
+      cursor: pointer;
+      padding: 4px;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+
+    .task-info-button:hover {
+      color: #6B7280;
+    }
+
+    .task-info-container {
+      display: none;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(156, 163, 175, 0.2);
+      font-size: 14px;
+      color: #6B7280;
+    }
+
+    .task-info-container.show {
+      display: block;
+    }
+
+    .task-info-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.5);
+      border: none;
+      border-radius: 6px;
+      padding: 6px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      color: #4B5563;
+    }
+
+    .task-info-input:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .task-date-input {
+      background: rgba(255, 255, 255, 0.5);
+      border: none;
+      border-radius: 6px;
+      padding: 4px 6px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      color: #4B5563;
+      margin-right: 8px;
+    }
+
+    .task-date-input:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.7);
+    }
+    </style>
 
     <script src="scripts/Sortable.min.js"></script>
     <script src="newTab.js"></script>
